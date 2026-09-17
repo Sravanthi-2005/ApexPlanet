@@ -1,148 +1,36 @@
 <?php
-
-require_once 'functions.php';
-
-if (isLoggedIn()) {
-    redirect('dashboard.php');
-}
-
-$errors = [];
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    if (!verifyCsrf($_POST['csrf'] ?? '')) {
-        $errors[] = 'Invalid security token. Please try again.';
-    }
-
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Please enter a valid email address.';
-    }
-
-    if ($password === '') {
-        $errors[] = 'Please enter your password.';
-    }
-
-    if (!$errors) {
-
-        $stmt = $pdo->prepare(
-            "SELECT id, name, email, password_hash, role
-             FROM users
-             WHERE email = ?"
-        );
-
-        $stmt->execute([$email]);
-
-        $user = $stmt->fetch();
-
-        if (
-            $user &&
-            password_verify($password, $user['password_hash'])
-        ) {
-
-            session_regenerate_id(true);
-
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['name'] = $user['name'];
-            $_SESSION['email'] = $user['email'];
-            $_SESSION['role'] = $user['role'];
-
-            redirect('dashboard.php');
-
-        } else {
-
-            $errors[] = 'Invalid email or password.';
+require "config.php";
+require "functions.php";
+if (isLoggedIn()) redirect("index.php");
+$error = "";
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $email = trim($_POST["email"] ?? "");
+    $password = $_POST["password"] ?? "";
+    $stmt = $conn->prepare("SELECT u.*, r.role_name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.email=?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+    if ($user && password_verify($password, $user["password_hash"])) {
+        if (!(int)$user["email_verified"]) $error = "Please verify your email first.";
+        else {
+            $_SESSION["user_id"] = $user["id"];
+            $_SESSION["name"] = $user["name"];
+            $_SESSION["email"] = $user["email"];
+            $_SESSION["role"] = $user["role_name"];
+            redirect("index.php");
         }
-    }
+    } else $error = "Invalid email or password.";
 }
-
-$pageTitle = 'Login';
-
-include 'partials/header.php';
+require "partials/header.php";
 ?>
-
-<div class="auth-wrapper">
-
-    <div class="card auth-card">
-
-        <h1>Welcome Back 👋</h1>
-
-        <p class="muted">
-            Login to your BookNest account.
-        </p>
-
-        <?php if ($errors): ?>
-
-            <div class="alert error">
-
-                <?php foreach ($errors as $error): ?>
-
-                    <p><?= e($error) ?></p>
-
-                <?php endforeach; ?>
-
-            </div>
-
-        <?php endif; ?>
-
-        <form method="post">
-
-            <input
-                type="hidden"
-                name="csrf"
-                value="<?= e(csrfToken()) ?>"
-            >
-
-            <label>
-                Email Address
-            </label>
-
-            <input
-                class="form-control"
-                type="email"
-                name="email"
-                value="<?= old('email') ?>"
-                placeholder="Enter your email"
-                required
-            >
-
-            <label>
-                Password
-            </label>
-
-            <input
-                class="form-control"
-                type="password"
-                name="password"
-                placeholder="Enter your password"
-                required
-            >
-
-            <div class="auth-links">
-
-                <a href="forgot_password.php">
-                    Forgot Password?
-                </a>
-
-            </div>
-
-            <br>
-
-            <button class="btn" type="submit">
-                Login
-            </button>
-
-        </form>
-
-        <p class="auth-footer">
-            Don't have an account?
-            <a href="register.php">Create an account</a>
-        </p>
-
-    </div>
-
+<div class="form-card">
+<h2>Login</h2>
+<?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
+<form method="post">
+<label>Email</label><input type="email" name="email" required>
+<label>Password</label><input type="password" name="password" required>
+<br><br><button class="btn">Login</button>
+</form>
+<p>New user? <a href="register.php" style="color:#118ab2">Create an account</a></p>
 </div>
-
-<?php include 'partials/footer.php'; ?>
+<?php require "partials/footer.php"; ?>
