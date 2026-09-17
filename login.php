@@ -1,80 +1,148 @@
 <?php
-require_once "functions.php";
+
+require_once 'functions.php';
 
 if (isLoggedIn()) {
-    redirect("dashboard.php");
+    redirect('dashboard.php');
 }
 
-$error = "";
+$errors = [];
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    verifyCsrf();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $email = trim($_POST["email"] ?? "");
-    $password = $_POST["password"] ?? "";
+    if (!verifyCsrf($_POST['csrf'] ?? '')) {
+        $errors[] = 'Invalid security token. Please try again.';
+    }
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $password === "") {
-        $error = "Enter a valid email and password.";
-    } else {
-        $stmt = $conn->prepare(
-            "SELECT u.id, u.name, u.email, u.password_hash, r.role_name
-             FROM users u
-             JOIN roles r ON u.role_id = r.id
-             WHERE u.email = ? LIMIT 1"
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Please enter a valid email address.';
+    }
+
+    if ($password === '') {
+        $errors[] = 'Please enter your password.';
+    }
+
+    if (!$errors) {
+
+        $stmt = $pdo->prepare(
+            "SELECT id, name, email, password_hash, role
+             FROM users
+             WHERE email = ?"
         );
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-        $stmt->close();
 
-        if ($user && password_verify($password, $user["password_hash"])) {
+        $stmt->execute([$email]);
+
+        $user = $stmt->fetch();
+
+        if (
+            $user &&
+            password_verify($password, $user['password_hash'])
+        ) {
+
             session_regenerate_id(true);
 
-            $_SESSION["user_id"] = (int)$user["id"];
-            $_SESSION["name"] = $user["name"];
-            $_SESSION["email"] = $user["email"];
-            $_SESSION["role"] = $user["role_name"];
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['name'] = $user['name'];
+            $_SESSION['email'] = $user['email'];
+            $_SESSION['role'] = $user['role'];
 
-            redirect("dashboard.php");
+            redirect('dashboard.php');
+
         } else {
-            $error = "Invalid email or password.";
+
+            $errors[] = 'Invalid email or password.';
         }
     }
 }
+
+$pageTitle = 'Login';
+
+include 'partials/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - User Management System</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="auth-page">
-<div class="auth-card">
-    <h1>User Management System</h1>
-    <p class="subtitle">Login to continue</p>
 
-    <?php showFlash(); ?>
-    <?php if ($error): ?>
-        <div class="alert error"><?= e($error) ?></div>
-    <?php endif; ?>
+<div class="auth-wrapper">
 
-    <form method="post">
-        <input type="hidden" name="csrf_token" value="<?= e(csrfToken()) ?>">
+    <div class="card auth-card">
 
-        <label>Email</label>
-        <input type="email" name="email" required maxlength="150"
-               value="<?= e($_POST["email"] ?? "") ?>">
+        <h1>Welcome Back 👋</h1>
 
-        <label>Password</label>
-        <input type="password" name="password" required>
+        <p class="muted">
+            Login to your BookNest account.
+        </p>
 
-        <button class="btn primary full" type="submit">Login</button>
-    </form>
+        <?php if ($errors): ?>
 
-    <p class="center">New user? <a href="register.php">Register here</a></p>
+            <div class="alert error">
+
+                <?php foreach ($errors as $error): ?>
+
+                    <p><?= e($error) ?></p>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+        <form method="post">
+
+            <input
+                type="hidden"
+                name="csrf"
+                value="<?= e(csrfToken()) ?>"
+            >
+
+            <label>
+                Email Address
+            </label>
+
+            <input
+                class="form-control"
+                type="email"
+                name="email"
+                value="<?= old('email') ?>"
+                placeholder="Enter your email"
+                required
+            >
+
+            <label>
+                Password
+            </label>
+
+            <input
+                class="form-control"
+                type="password"
+                name="password"
+                placeholder="Enter your password"
+                required
+            >
+
+            <div class="auth-links">
+
+                <a href="forgot_password.php">
+                    Forgot Password?
+                </a>
+
+            </div>
+
+            <br>
+
+            <button class="btn" type="submit">
+                Login
+            </button>
+
+        </form>
+
+        <p class="auth-footer">
+            Don't have an account?
+            <a href="register.php">Create an account</a>
+        </p>
+
+    </div>
+
 </div>
-</body>
-</html>
+
+<?php include 'partials/footer.php'; ?>

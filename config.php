@@ -1,26 +1,51 @@
 <?php
-// Database configuration for XAMPP.
-// Change these values only if your MySQL setup is different.
 
-$host = "localhost";
-$username = "root";
-$password = "";
-$database = "user_management";
+declare(strict_types=1);
 
-$conn = new mysqli($host, $username, $password, $database);
+session_start();
 
-if ($conn->connect_error) {
-    die("Database connection failed: " . $conn->connect_error);
+/*
+|--------------------------------------------------------------------------
+| Database Configuration
+|--------------------------------------------------------------------------
+*/
+
+const DB_HOST = 'localhost';
+const DB_NAME = 'online_bookstore';
+const DB_USER = 'root';
+const DB_PASS = '';
+
+/*
+|--------------------------------------------------------------------------
+| Database Connection
+|--------------------------------------------------------------------------
+*/
+
+try {
+
+    $pdo = new PDO(
+        'mysql:host=' . DB_HOST .
+        ';dbname=' . DB_NAME .
+        ';charset=utf8mb4',
+
+        DB_USER,
+        DB_PASS,
+
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+
+            PDO::ATTR_DEFAULT_FETCH_MODE =>
+                PDO::FETCH_ASSOC,
+
+            PDO::ATTR_EMULATE_PREPARES =>
+                false
+        ]
+    );
+
+} catch (PDOException $e) {
+
+    die(
+        'Database connection failed. '
+        . 'Please check XAMPP MySQL and config.php.'
+    );
 }
-
-$conn->set_charset("utf8mb4");
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_set_cookie_params([
-        "httponly" => true,
-        "samesite" => "Lax",
-        "secure" => !empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off"
-    ]);
-    session_start();
-}
-?>
